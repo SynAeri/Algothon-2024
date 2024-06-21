@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from teamName import getMyPosition as getPosition
+from UN_OWEN_WAS_HER import getMyPosition as getPosition
 
 nInst = 0
 nt = 0
