@@ -36,8 +36,10 @@ def getMyPosition(prcSoFar):
     gamma = 2  # Risk aversion parameter
     
     # We optimise weights of each stock in order to maximise expected return and minimise risk 
-    prob = cp.Problem(cp.Maximize(ret - gamma * risk), 
-                      [cp.sum(w) == 0, w >= -1, w <= 1])
+    prob = cp.Problem(cp.Maximize(ret - gamma * risk), [cp.sum(w) == 0, w >= -1, w <= 1]) 
+    
+    ### cp.sum(w) == 0 to protect bias in long and short position in case all stock prices going up or down 
+    
     prob.solve()
 
     optimal_weights = w.value
