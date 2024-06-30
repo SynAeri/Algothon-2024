@@ -1,69 +1,80 @@
-
 import numpy as np
+import cvxpy as cp   #### convex optimisation problems packages ####
 
 ##### TODO #########################################
 ### RENAME THIS FILE TO YOUR TEAM NAME #############
 ### IMPLEMENT 'getMyPosition' FUNCTION #############
 ### TO RUN, RUN 'eval.py' ##########################
 
+#### Mean Variance Optimisation Strategy ####
+
+# Variable to track days since last position update
+days_since_last_update = 0
+UPDATE_FREQUENCY = 40  # Update positions every 40 day, which means we will trade every 40 days
 nInst = 50
 currentPos = np.zeros(nInst)
-Curr_strat = 0
-#Original - do not delete
-""" def getMyPosition(prcSoFar):
-    global currentPos
-    #Shape of the input array = prices
-    (nins, nt) = prcSoFar.shape
-
-    #Days of data less than 2 return zero positions (nins is declared in which is outputted in the shape )
-    if (nt < 2):
-        return np.zeros(nins)
-    #Calcs log return of the 
-    lastRet = np.log(prcSoFar[:, -1] / prcSoFar[:, -2])
-    lNorm = np.sqrt(lastRet.dot(lastRet))
-    lastRet /= lNorm
-    rpos = np.array([int(x) for x in 5000 * lastRet / prcSoFar[:, -1]])
-    currentPos = np.array([int(x) for x in currentPos+rpos])
-    return currentPos """
-
-#Jordan Note: Add another getMyPosition for referencing MACD
+dlrPosLimit = 10000  # Dollar position limit
 
 def getMyPosition(prcSoFar):
-    global currentPos
-    # Trade Strategy
-    positions = SMA(prcSoFar)
-
-    # Update the current positions to the trading strategy
-    #print("Positions", currentPos)
-    currentPos = np.array([int(x) for x in positions])
-    # Return the updated positions
-    return currentPos
-
-
-def SMA(prcSoFar):
-    #days, inst
+    global currentPos, days_since_last_update
+    
     (nins, nt) = prcSoFar.shape
-    #Make an empty array similar to the size of the price.txt
-    positions = np.zeros(nins)
+    if nt < 2:
+        return np.zeros(nins)  # Not enough data points to calculate returns
     
-    # Initialize the SMA matrix
-    SMA_13 = np.zeros(prcSoFar.shape)
+    # Calculate daily returns
+    returns = np.diff(prcSoFar, axis=1) / prcSoFar[:, :-1]
     
-    # Calculate SMA for each stock
-    for i in range(prcSoFar.shape[0]):  # loop for 50 stocks
-        for j in range(12, prcSoFar.shape[1]):  # loop from day 13 to the end
-            # SMA at day 13 = (sum of prices from day 1 to 13) / 13
-            SMA_13[i, j] = np.sum(prcSoFar[i, j-12:j+1]) / 13
+    # Calculate expected returns and covariance matrix
+    expected_returns = np.mean(returns, axis=1)
+    cov_matrix = np.cov(returns)
     
-    # Trading logic based on SMA
-    for i in range(nins):
-        #We are now comparing the values from the SMA_13 with the price.txt matrix
-        #Attempt at adding shares but not the best shares to buy
-        if prcSoFar[i, -1] > SMA_13[i, -1]:
-            #Debug print can comment it off if you want
-            #print("->", prcSoFar[i, -1], " Less than: ", SMA_13[i,-1], " so increase")
-            positions[i] = 10
-        else:
-            positions[i] = -10
+    # Mean-variance optimization using cvxpy package
+    w = cp.Variable(nins)
+    risk = cp.quad_form(w, cov_matrix)
+    ret = expected_returns @ w
+    gamma = 2  # Risk aversion parameter
     
-    return positions
+    # We optimise weights of each stock in order to maximise expected return and minimise risk 
+    prob = cp.Problem(cp.Maximize(ret - gamma * risk), 
+                      [cp.sum(w) == 0, w >= -1, w <= 1])
+    prob.solve()
+
+    optimal_weights = w.value
+    
+    # Initialize positions
+    new_positions = np.zeros(nins)
+    budget = 9800   ### budget is set below 10000 to protect from a trading force in inactive interval of 40 days, in other words, 
+                    ### we will trade position near 9800 so that inactive position resulting from price changes will not reach over 10000
+                    ### Otherwise, we will waste unnecessary trading fees.
+    # Check if it's time to update positions
+    if days_since_last_update == UPDATE_FREQUENCY:
+        # Calculate the number of shares for each instrument based on optimal weights
+        for i in range(nins):
+            current_price = prcSoFar[i, -1]
+            if optimal_weights[i] > 0:
+                num_shares = (budget * optimal_weights[i]) // current_price
+                position_value = num_shares * current_price
+                if position_value > dlrPosLimit:
+                    num_shares = dlrPosLimit // current_price
+            elif optimal_weights[i] < 0:
+                num_shares = (budget * optimal_weights[i]) // current_price
+                position_value = num_shares * current_price
+                if position_value < -dlrPosLimit:
+                    num_shares = -dlrPosLimit // current_price
+            else:
+                num_shares = 0
+
+            new_positions[i] = num_shares
+        
+        # Reset days_since_last_update
+        days_since_last_update = 0
+    
+    else:
+        # Maintain current positions
+        new_positions = currentPos
+        days_since_last_update += 1
+        
+    # Update current positions
+    currentPos = new_positions
+    return currentPos
