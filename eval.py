@@ -2,15 +2,12 @@
 
 import numpy as np
 import pandas as pd
-from UN_OWEN_WAS_HER import getMyPosition as getPosition
+from main import getMyPosition as getPosition
 
 nInst = 0
 nt = 0
 commRate = 0.0010
 dlrPosLimit = 10000
-
-#SELF MADE VARIABLE COUNT
-count = 1
 
 
 def loadPrices(fn):
@@ -21,13 +18,10 @@ def loadPrices(fn):
 
 
 pricesFile = "./prices.txt"
-#The transposed file
 prcAll = loadPrices(pricesFile)
 print("Loaded %d instruments for %d days" % (nInst, nt))
 
 
-#//SMA//#
-print("=== Strategy ", "SMA", " ===")
 def calcPL(prcHist):
     cash = 0
     curPos = np.zeros(nInst)
@@ -37,7 +31,6 @@ def calcPL(prcHist):
     value = 0
     todayPLL = []
     (_, nt) = prcHist.shape
-    #range of days?
     for t in range(250, 501):
         prcHistSoFar = prcHist[:, :t]
         newPosOrig = getPosition(prcHistSoFar)
@@ -58,7 +51,8 @@ def calcPL(prcHist):
         ret = 0.0
         if (totDVolume > 0):
             ret = value / totDVolume
-        print("Day %d value: %.2lf todayPL: $%.2lf $-traded: %.0lf return: %.5lf" %(t, value, todayPL, totDVolume, ret))
+        print("Day %d value: %.2lf todayPL: $%.2lf $-traded: %.0lf return: %.5lf" %
+              (t, value, todayPL, totDVolume, ret))
     pll = np.array(todayPLL)
     (plmu, plstd) = (np.mean(pll), np.std(pll))
     annSharpe = 0.0
@@ -67,66 +61,12 @@ def calcPL(prcHist):
     return (plmu, ret, plstd, annSharpe, totDVolume)
 
 
-#Final Values
 (meanpl, ret, plstd, sharpe, dvol) = calcPL(prcAll)
 score = meanpl - 0.1*plstd
-print("===== Results for", "SMA"," ===")
+print("=====")
 print("mean(PL): %.1lf" % meanpl)
 print("return: %.5lf" % ret)
 print("StdDev(PL): %.2lf" % plstd)
 print("annSharpe(PL): %.2lf " % sharpe)
 print("totDvolume: %.0lf " % dvol)
 print("Score: %.2lf" % score)
-print("=== new newPosOrig visual === \n", getPosition(loadPrices(pricesFile)))
-
-#Something to add later
-""" #//MACD//#
-print("=== Strategy ", "MACD", " ===")
-def calcPL(prcHist):
-    cash = 0
-    curPos = np.zeros(nInst)
-    totDVolume = 0
-    totDVolumeSignal = 0
-    totDVolumeRandom = 0
-    value = 0
-    todayPLL = []
-    (_, nt) = prcHist.shape
-    #range of days?
-    for t in range(250, 501):
-        prcHistSoFar = prcHist[:, :t]
-        newPosOrig = getPosition(prcHistSoFar)
-        curPrices = prcHistSoFar[:, -1]
-        posLimits = np.array([int(x) for x in dlrPosLimit / curPrices])
-        newPos = np.clip(newPosOrig, -posLimits, posLimits)
-        deltaPos = newPos - curPos
-        dvolumes = curPrices * np.abs(deltaPos)
-        dvolume = np.sum(dvolumes)
-        totDVolume += dvolume
-        comm = dvolume * commRate
-        cash -= curPrices.dot(deltaPos) + comm
-        curPos = np.array(newPos)
-        posValue = curPos.dot(curPrices)
-        todayPL = cash + posValue - value
-        todayPLL.append(todayPL)
-        value = cash + posValue
-        ret = 0.0
-        if (totDVolume > 0):
-            ret = value / totDVolume
-        print("Day %d value: %.2lf todayPL: $%.2lf $-traded: %.0lf return: %.5lf" %(t, value, todayPL, totDVolume, ret))
-    pll = np.array(todayPLL)
-    (plmu, plstd) = (np.mean(pll), np.std(pll))
-    annSharpe = 0.0
-    if (plstd > 0):
-        annSharpe = np.sqrt(250) * plmu / plstd
-    return (plmu, ret, plstd, annSharpe, totDVolume)
-
-#Final Values
-(meanpl, ret, plstd, sharpe, dvol) = calcPL(prcAll)
-score = meanpl - 0.1*plstd
-print("===== Results for", "MACD"," ===")
-print("mean(PL): %.1lf" % meanpl)
-print("return: %.5lf" % ret)
-print("StdDev(PL): %.2lf" % plstd)
-print("annSharpe(PL): %.2lf " % sharpe)
-print("totDvolume: %.0lf " % dvol)
-print("Score: %.2lf" % score) """
