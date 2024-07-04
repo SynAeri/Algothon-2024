@@ -31,7 +31,10 @@ def calcPL(prcHist):
     value = 0
     todayPLL = []
     (_, nt) = prcHist.shape
-    for t in range(250, 501):
+    for t in range(3, 501): #best is around 129- 140 for lowest and positive result\
+        #129 - 501 outputs 5.05 score with freq of 42 and gamma 3
+        #120 - 501 outputs score 0.46 with freq of 42 and gamma 3
+        #130 - 501 outputs score 10.5 with freq of 41 and gamma 2
         prcHistSoFar = prcHist[:, :t]
         newPosOrig = getPosition(prcHistSoFar)
         curPrices = prcHistSoFar[:, -1]
